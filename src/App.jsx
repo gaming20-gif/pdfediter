@@ -869,7 +869,7 @@ export default function App() {
             {/* Bottom details section (Bank details & stamp signature) */}
             <section className="flex flex-col md:flex-row print:flex-row flex-1 min-h-[120px]">
               {/* Bank info (Left) */}
-              <div className="print-border-black border-b md:border-b-0 print:border-b-0 md:border-r print:border-r border-slate-800 flex-[1.2] p-2.5 flex flex-col gap-1">
+              <div className="print-border-black md:border-r print:border-r border-slate-800 flex-[1.2] p-2.5 flex flex-col gap-1">
                 <span className="font-bold text-[9px] uppercase text-slate-600 border-b border-slate-200 pb-0.5 mb-1 w-full">Bank Details:</span>
                 <table className="w-full text-[10px]">
                   <tbody>
@@ -934,7 +934,7 @@ export default function App() {
               </div>
 
               {/* Signature stamp info (Right) */}
-              <div className="flex-1 p-2.5 flex flex-col justify-between items-center relative min-h-[120px] md:min-h-0">
+              <div className="print-border-black border-t md:border-t-0 print:border-t-0 border-slate-800 flex-1 p-2.5 flex flex-col justify-between items-center relative min-h-[120px] md:min-h-0">
                 <div className="text-[9px] font-medium text-slate-500 text-left w-full flex gap-1">
                   <span>For</span>
                   <input
