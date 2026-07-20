@@ -6,7 +6,9 @@ import {
   RotateCcw, 
   Save, 
   Info,
-  CheckCircle
+  CheckCircle,
+  Menu,
+  X
 } from 'lucide-react';
 import { formatIndianCurrency, convertNumberToWords } from './utils/numberToWords';
 
@@ -76,6 +78,7 @@ export default function App() {
 
   const [toastMessage, setToastMessage] = useState("");
   const [manualRoundOff, setManualRoundOff] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Sync state changes to localStorage
   useEffect(() => {
@@ -234,8 +237,42 @@ export default function App() {
         </div>
       )}
 
+      {/* Mobile Top Header (hidden in print, hidden on md screens) */}
+      <div className="md:hidden no-print fixed top-0 left-0 right-0 h-14 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4 z-40">
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-1.5 text-slate-300 hover:text-slate-100 hover:bg-slate-700 rounded-md transition-colors cursor-pointer"
+          aria-label="Toggle menu"
+        >
+          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+        
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-indigo-600 rounded flex items-center justify-center font-bold text-white text-sm">
+            G4
+          </div>
+          <span className="font-bold text-slate-100 text-sm">GST React Pro</span>
+        </div>
+
+        <button
+          onClick={() => window.print()}
+          className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors shadow cursor-pointer"
+          title="Print"
+        >
+          <Printer size={16} />
+        </button>
+      </div>
+
+      {/* Backdrop Overlay when sidebar is open on mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-30 md:hidden no-print" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Control Sidebar (Collapsible/Hidden in Print) */}
-      <aside className="no-print w-80 bg-slate-800 border-r border-slate-700 p-6 flex flex-col gap-6 fixed left-0 top-0 h-screen overflow-y-auto z-40">
+      <aside className={`no-print w-80 bg-slate-800 border-r border-slate-700 p-6 flex flex-col gap-6 fixed left-0 top-0 h-screen overflow-y-auto z-40 transition-transform duration-300 ease-in-out md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center gap-3 border-b border-slate-700 pb-4">
           <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white text-lg">
             G4
@@ -346,19 +383,19 @@ export default function App() {
       </aside>
 
       {/* Main Preview workspace */}
-      <main className="flex-1 ml-80 p-10 flex justify-center items-start min-h-screen overflow-y-auto print:p-0 print:m-0 print:block">
+      <main className="flex-1 md:ml-80 p-4 md:p-10 pt-18 md:pt-10 flex justify-center items-start min-h-screen overflow-y-auto print:p-0 print:m-0 print:block">
         
         {/* Printable/Preview Page container */}
-        <article className="print-page w-[800px] min-h-[1130px] bg-white text-slate-900 p-[30px] shadow-2xl flex flex-col text-[11px] leading-tight select-text">
+        <article className="print-page w-full max-w-[800px] min-h-[1130px] bg-white text-slate-900 p-4 md:p-[30px] shadow-2xl flex flex-col text-[11px] leading-tight select-text">
           <div className="print-border-black border border-slate-800 flex flex-col flex-1">
             
             {/* Invoice Header Title Area */}
-            <header className="print-border-black border-b border-slate-800 flex justify-between items-center px-2.5 py-1.5">
+            <header className="print-border-black border-b border-slate-800 flex flex-col sm:flex-row justify-between items-center px-2.5 py-1.5 gap-2">
               <input
                 type="text"
                 value={state.invoice.title}
                 onChange={(e) => updateInvoice('title', e.target.value)}
-                className="font-bold text-[14px] text-[var(--invoice-accent)] tracking-widest text-center uppercase flex-1 ml-[100px] border border-transparent focus:border-indigo-200 rounded px-1 outline-none font-display print:hidden"
+                className="font-bold text-[14px] text-[var(--invoice-accent)] tracking-widest text-center uppercase flex-1 md:ml-[100px] print:ml-[100px] ml-0 border border-transparent focus:border-indigo-200 rounded px-1 outline-none font-display print:hidden"
               />
               <div className="hidden print:block font-bold text-[14px] text-[var(--invoice-accent)] tracking-widest text-center uppercase flex-1 ml-[100px] font-display">
                 {state.invoice.title}
@@ -368,7 +405,7 @@ export default function App() {
                 type="text"
                 value={state.invoice.recipientType}
                 onChange={(e) => updateInvoice('recipientType', e.target.value)}
-                className="text-[9px] font-semibold text-slate-500 uppercase border border-transparent focus:border-indigo-200 rounded px-1 outline-none text-right w-[150px] print:hidden"
+                className="text-[9px] font-semibold text-slate-500 uppercase border border-transparent focus:border-indigo-200 rounded px-1 outline-none text-center sm:text-right w-[150px] print:hidden"
               />
               <div className="hidden print:block text-[9px] font-semibold text-slate-500 uppercase text-right w-[150px]">
                 {state.invoice.recipientType}
@@ -376,9 +413,9 @@ export default function App() {
             </header>
 
             {/* Seller Details and Metadata Grid */}
-            <section className="print-border-black border-b border-slate-800 flex">
+            <section className="print-border-black border-b border-slate-800 flex flex-col md:flex-row print:flex-row">
               {/* Seller details column */}
-              <div className="print-border-black border-r border-slate-800 flex-1 p-2 flex flex-col gap-1">
+              <div className="print-border-black border-b md:border-b-0 print:border-b-0 md:border-r print:border-r border-slate-800 flex-1 p-2 flex flex-col gap-1">
                 <input
                   type="text"
                   value={state.seller.name}
@@ -440,7 +477,7 @@ export default function App() {
               </div>
 
               {/* Invoice Metadata columns */}
-              <div className="w-[320px] flex flex-col">
+              <div className="w-full md:w-[320px] print:w-[320px] flex flex-col">
                 <div className="print-border-black border-b border-slate-800 flex flex-1">
                   <div className="print-border-black border-r border-slate-800 flex-1 p-2 flex flex-col">
                     <span className="text-[9px] text-slate-500 font-medium">Invoice #:</span>
@@ -533,7 +570,7 @@ export default function App() {
                 {state.customer.subname}
               </div>
 
-              <div className="flex gap-6 mt-0.5">
+              <div className="flex flex-wrap gap-x-6 gap-y-2 mt-0.5">
                 <div className="flex gap-1 items-center">
                   <span className="text-[9px] text-slate-500 font-medium uppercase">GSTIN:</span>
                   <input
@@ -587,25 +624,33 @@ export default function App() {
 
             {/* Items Table container */}
             <section className="flex-1 flex flex-col">
-              <table className="w-full border-collapse text-[10px] table-fixed">
-                <thead>
-                  <tr className="print-bg-white bg-slate-50 font-semibold print-border-black border-b border-slate-800">
-                    <th className="print-border-black border-r border-slate-800 p-1.5 text-center w-[5%]">#</th>
-                    <th className="print-border-black border-r border-slate-800 p-1.5 text-left w-[43%]">Item</th>
-                    <th className="print-border-black border-r border-slate-800 p-1.5 text-center w-[10%]">HSN/SAC</th>
-                    <th className="print-border-black border-r border-slate-800 p-1.5 text-right w-[12%]">Rate / Item</th>
-                    <th className="print-border-black border-r border-slate-800 p-1.5 text-center w-[12%]">Qty</th>
-                    <th className="print-border-black border-r border-slate-800 p-1.5 text-right w-[12%]">Taxable Value</th>
-                    <th className="print-border-black border-r border-slate-800 p-1.5 text-right w-[12%]">Tax Amount</th>
-                    <th className="p-1.5 text-right w-[12%]">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itemsCalculated.map((item, idx) => (
-                    <tr key={item.id} className="group relative print-border-black border-b border-slate-800">
-                      <td className="print-border-black border-r border-slate-800 p-1.5 text-center align-top">
-                        {idx + 1}
-                      </td>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full border-collapse text-[10px] table-fixed min-w-[750px] md:min-w-0 print:min-w-0">
+                  <thead>
+                    <tr className="print-bg-white bg-slate-50 font-semibold print-border-black border-b border-slate-800">
+                      <th className="print-border-black border-r border-slate-800 p-1.5 text-center w-[5%]">#</th>
+                      <th className="print-border-black border-r border-slate-800 p-1.5 text-left w-[43%]">Item</th>
+                      <th className="print-border-black border-r border-slate-800 p-1.5 text-center w-[10%]">HSN/SAC</th>
+                      <th className="print-border-black border-r border-slate-800 p-1.5 text-right w-[12%]">Rate / Item</th>
+                      <th className="print-border-black border-r border-slate-800 p-1.5 text-center w-[12%]">Qty</th>
+                      <th className="print-border-black border-r border-slate-800 p-1.5 text-right w-[12%]">Taxable Value</th>
+                      <th className="print-border-black border-r border-slate-800 p-1.5 text-right w-[12%]">Tax Amount</th>
+                      <th className="p-1.5 text-right w-[12%]">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itemsCalculated.map((item, idx) => (
+                      <tr key={item.id} className="group relative print-border-black border-b border-slate-800">
+                        <td className="print-border-black border-r border-slate-800 p-1.5 text-center align-top">
+                          <div>{idx + 1}</div>
+                          <button
+                            onClick={() => deleteItemRow(item.id)}
+                            className="no-print md:hidden mt-1.5 mx-auto w-5 h-5 rounded bg-rose-600 text-white flex items-center justify-center shadow-sm hover:bg-rose-700 cursor-pointer"
+                            title="Delete item"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        </td>
                       <td className="print-border-black border-r border-slate-800 p-1 align-top text-left">
                         <textarea
                           value={item.name}
@@ -674,7 +719,7 @@ export default function App() {
                       </td>
 
                       {/* Row Delete button overlay (hidden in print) */}
-                      <td className="no-print absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <td className="no-print absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden md:block">
                         <button
                           onClick={() => deleteItemRow(item.id)}
                           className="w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-md hover:bg-rose-700 cursor-pointer"
@@ -686,6 +731,7 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
+            </div>
 
               {/* Add item button under the table */}
               <div className="no-print p-2 flex justify-start">
@@ -707,9 +753,9 @@ export default function App() {
             </section>
 
             {/* Calculations and Summary grid block */}
-            <section className="print-border-black border-b border-slate-800 flex">
+            <section className="print-border-black border-b border-slate-800 flex flex-col md:flex-row print:flex-row">
               {/* Total amount in words (Left) */}
-              <div className="print-border-black border-r border-slate-800 flex-[1.3] p-2 flex flex-col">
+              <div className="print-border-black border-b md:border-b-0 print:border-b-0 md:border-r print:border-r border-slate-800 flex-[1.3] p-2 flex flex-col">
                 <span className="text-[9px] text-slate-500 font-medium">Total amount (in words):</span>
                 <span className="font-semibold text-slate-800 italic leading-relaxed mt-1">
                   {convertNumberToWords(grandTotal)}
@@ -717,7 +763,7 @@ export default function App() {
               </div>
 
               {/* Calculations tally side (Right) */}
-              <div className="w-[300px] flex flex-col">
+              <div className="w-full md:w-[300px] print:w-[300px] flex flex-col">
                 <div className="flex justify-between px-2.5 py-1 text-[9px] text-slate-500 font-medium border-b border-slate-100 border-dashed">
                   <span>Taxable Amount</span>
                   <span className="font-semibold text-slate-900 font-mono">₹{formatIndianCurrency(totalTaxableValue)}</span>
@@ -766,50 +812,52 @@ export default function App() {
               <div className="print-bg-white print-border-black border-b border-slate-800 px-2.5 py-1 text-[9px] font-bold text-slate-700 bg-slate-50">
                 GST Tax Breakdown (HSN/SAC Summary)
               </div>
-              <table className="w-full border-collapse text-[9px] table-fixed">
-                <thead>
-                  <tr className="border-b border-slate-200 print-border-black">
-                    <th rowSpan="2" className="print-border-black border-r border-slate-800 p-1 text-center w-[15%]">HSN/SAC</th>
-                    <th rowSpan="2" className="print-border-black border-r border-slate-800 p-1 text-right w-[20%]">Taxable Value</th>
-                    <th colSpan="2" className="print-border-black border-r border-slate-800 p-1 text-center w-[25%] border-b border-slate-200 print-border-black">Central Tax</th>
-                    <th colSpan="2" className="print-border-black border-r border-slate-800 p-1 text-center w-[25%] border-b border-slate-200 print-border-black">State/UT Tax</th>
-                    <th rowSpan="2" className="p-1 text-right w-[15%]">Total Tax Amount</th>
-                  </tr>
-                  <tr className="border-b border-slate-200 print-border-black">
-                    <th className="print-border-black border-r border-slate-800 p-1 text-center">Rate</th>
-                    <th className="print-border-black border-r border-slate-800 p-1 text-right">Amount</th>
-                    <th className="print-border-black border-r border-slate-800 p-1 text-center">Rate</th>
-                    <th className="print-border-black border-r border-slate-800 p-1 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.keys(hsnGroups).map(hsn => {
-                    const group = hsnGroups[hsn];
-                    return (
-                      <tr key={hsn} className="border-b border-slate-200 print-border-black font-mono">
-                        <td className="print-border-black border-r border-slate-800 p-1 text-center">{hsn}</td>
-                        <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(group.taxable)}</td>
-                        <td className="print-border-black border-r border-slate-800 p-1 text-center">{cgstRate}%</td>
-                        <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(group.cgstAmt)}</td>
-                        <td className="print-border-black border-r border-slate-800 p-1 text-center">{sgstRate}%</td>
-                        <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(group.sgstAmt)}</td>
-                        <td className="p-1 text-right">{formatIndianCurrency(group.totalTax)}</td>
-                      </tr>
-                    );
-                  })}
-                  
-                  {/* HSN Breakdown Total Row */}
-                  <tr className="print-bg-white bg-slate-50 font-bold font-mono">
-                    <td className="print-border-black border-r border-slate-800 p-1 text-center">TOTAL</td>
-                    <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(totalTaxableValue)}</td>
-                    <td className="print-border-black border-r border-slate-800 p-1 text-center">-</td>
-                    <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(totalCgstAmount)}</td>
-                    <td className="print-border-black border-r border-slate-800 p-1 text-center">-</td>
-                    <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(totalSgstAmount)}</td>
-                    <td className="p-1 text-right">{formatIndianCurrency(totalCgstAmount + totalSgstAmount)}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full border-collapse text-[9px] table-fixed min-w-[600px] md:min-w-0 print:min-w-0">
+                  <thead>
+                    <tr className="border-b border-slate-200 print-border-black">
+                      <th rowSpan="2" className="print-border-black border-r border-slate-800 p-1 text-center w-[15%]">HSN/SAC</th>
+                      <th rowSpan="2" className="print-border-black border-r border-slate-800 p-1 text-right w-[20%]">Taxable Value</th>
+                      <th colSpan="2" className="print-border-black border-r border-slate-800 p-1 text-center w-[25%] border-b border-slate-200 print-border-black">Central Tax</th>
+                      <th colSpan="2" className="print-border-black border-r border-slate-800 p-1 text-center w-[25%] border-b border-slate-200 print-border-black">State/UT Tax</th>
+                      <th rowSpan="2" className="p-1 text-right w-[15%]">Total Tax Amount</th>
+                    </tr>
+                    <tr className="border-b border-slate-200 print-border-black">
+                      <th className="print-border-black border-r border-slate-800 p-1 text-center">Rate</th>
+                      <th className="print-border-black border-r border-slate-800 p-1 text-right">Amount</th>
+                      <th className="print-border-black border-r border-slate-800 p-1 text-center">Rate</th>
+                      <th className="print-border-black border-r border-slate-800 p-1 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(hsnGroups).map(hsn => {
+                      const group = hsnGroups[hsn];
+                      return (
+                        <tr key={hsn} className="border-b border-slate-200 print-border-black font-mono">
+                          <td className="print-border-black border-r border-slate-800 p-1 text-center">{hsn}</td>
+                          <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(group.taxable)}</td>
+                          <td className="print-border-black border-r border-slate-800 p-1 text-center">{cgstRate}%</td>
+                          <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(group.cgstAmt)}</td>
+                          <td className="print-border-black border-r border-slate-800 p-1 text-center">{sgstRate}%</td>
+                          <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(group.sgstAmt)}</td>
+                          <td className="p-1 text-right">{formatIndianCurrency(group.totalTax)}</td>
+                        </tr>
+                      );
+                    })}
+                    
+                    {/* HSN Breakdown Total Row */}
+                    <tr className="print-bg-white bg-slate-50 font-bold font-mono">
+                      <td className="print-border-black border-r border-slate-800 p-1 text-center">TOTAL</td>
+                      <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(totalTaxableValue)}</td>
+                      <td className="print-border-black border-r border-slate-800 p-1 text-center">-</td>
+                      <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(totalCgstAmount)}</td>
+                      <td className="print-border-black border-r border-slate-800 p-1 text-center">-</td>
+                      <td className="print-border-black border-r border-slate-800 p-1 text-right">{formatIndianCurrency(totalSgstAmount)}</td>
+                      <td className="p-1 text-right">{formatIndianCurrency(totalCgstAmount + totalSgstAmount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             {/* HSN Summary Amount Payable Summary Bar */}
@@ -819,9 +867,9 @@ export default function App() {
             </section>
 
             {/* Bottom details section (Bank details & stamp signature) */}
-            <section className="flex flex-1 min-h-[120px]">
+            <section className="flex flex-col md:flex-row print:flex-row flex-1 min-h-[120px]">
               {/* Bank info (Left) */}
-              <div className="print-border-black border-r border-slate-800 flex-[1.2] p-2.5 flex flex-col gap-1">
+              <div className="print-border-black border-b md:border-b-0 print:border-b-0 md:border-r print:border-r border-slate-800 flex-[1.2] p-2.5 flex flex-col gap-1">
                 <span className="font-bold text-[9px] uppercase text-slate-600 border-b border-slate-200 pb-0.5 mb-1 w-full">Bank Details:</span>
                 <table className="w-full text-[10px]">
                   <tbody>
@@ -886,7 +934,7 @@ export default function App() {
               </div>
 
               {/* Signature stamp info (Right) */}
-              <div className="flex-1 p-2.5 flex flex-col justify-between items-center relative">
+              <div className="flex-1 p-2.5 flex flex-col justify-between items-center relative min-h-[120px] md:min-h-0">
                 <div className="text-[9px] font-medium text-slate-500 text-left w-full flex gap-1">
                   <span>For</span>
                   <input
