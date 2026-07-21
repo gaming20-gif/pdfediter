@@ -101,50 +101,7 @@ const seededGSTINs = {
   }
 };
 
-const defaultSavedCompanies = [
-  {
-    id: "sc-1",
-    name: "RAMKRISHNA WHITE CLAY",
-    subname: "Ramkrishna White Clay",
-    gstin: "24BIGPS3992C1Z4",
-    address: "SURVEY NO.475/1/P1, MAMUARA, MAMUARA\nKachchh, GUJARAT, 370020",
-    phone: "+91 9909884555",
-    email: "ramkrishnawhiteclay@gmail.com",
-    type: "seller"
-  },
-  {
-    id: "sc-2",
-    name: "Bhavana Enterprises",
-    subname: "BHAVANA ENTERPRISE",
-    gstin: "24DCLPG2555L1ZE",
-    pan: "DCLPG2555L",
-    address: "House No. 492, Ground Floor, Mahesh Gamot\nJatiya vas, Mamuara\nKachchh, Gujarat, 370020",
-    phone: "9274395349",
-    type: "customer"
-  },
-  {
-    id: "sc-3",
-    name: "GOOGLE INDIA PRIVATE LIMITED",
-    subname: "Google India",
-    gstin: "29AACCG0527D1Z0",
-    pan: "AACCG0527D",
-    address: "No. 26/1, 4th & 5th Floor, Vaswani Centropolis, Langford Road, Shanthala Nagar, Bengaluru, Karnataka, 560025",
-    phone: "+91 80 6721 8000",
-    email: "googleindia-support@google.com",
-    type: "both"
-  },
-  {
-    id: "sc-4",
-    name: "TATA CONSULTANCY SERVICES LIMITED",
-    subname: "TCS",
-    gstin: "27AAACR4849R1ZL",
-    pan: "AAACR4849R",
-    address: "Nirmal Building, 9th Floor, Nariman Point, Mumbai, Maharashtra, 400021",
-    phone: "+91 22 6778 9999",
-    email: "tcs.investors@tcs.com",
-    type: "both"
-  }
-];
+const defaultSavedCompanies = [];
 
 // Default Reference State (matching the source image exactly)
 const referenceState = {
@@ -214,7 +171,9 @@ export default function App() {
           customer: { ...baseState.customer, ...parsed.customer },
           invoice: { ...baseState.invoice, ...parsed.invoice },
           bank: { ...baseState.bank, ...parsed.bank },
-          savedCompanies: parsed.savedCompanies || baseState.savedCompanies
+          savedCompanies: (parsed.savedCompanies || baseState.savedCompanies).filter(
+            c => c.id !== "sc-1" && c.id !== "sc-2" && c.id !== "sc-3" && c.id !== "sc-4"
+          )
         };
       } catch (e) {
         console.error("Failed to parse saved state", e);
@@ -264,16 +223,16 @@ export default function App() {
   const [directorySearch, setDirectorySearch] = useState("");
 
   const saveCompanyToDirectory = (companyData, type) => {
-    if (!companyData.name) return;
+    if (!companyData || !companyData.name || !companyData.name.trim()) return;
     
     setState(prev => {
       const existingIndex = prev.savedCompanies.findIndex(c => 
-        (companyData.gstin && c.gstin === companyData.gstin) || 
+        (companyData.gstin && c.gstin && c.gstin.trim() === companyData.gstin.trim()) || 
         c.name.trim().toUpperCase() === companyData.name.trim().toUpperCase()
       );
       
       const newCompany = {
-        id: existingIndex !== -1 ? prev.savedCompanies[existingIndex].id : "sc-" + Date.now(),
+        id: existingIndex !== -1 ? prev.savedCompanies[existingIndex].id : "sc-" + Date.now() + "-" + Math.floor(Math.random() * 1000000),
         name: companyData.name.trim().toUpperCase(),
         subname: companyData.subname || companyData.tradeName || companyData.name,
         gstin: companyData.gstin || "",
@@ -520,6 +479,19 @@ export default function App() {
   };
 
   const handlePrint = () => {
+    const sellerGstin = (state.seller.gstin || "").trim();
+    const customerGstin = (state.customer.gstin || "").trim();
+
+    if (sellerGstin && sellerGstin.length !== 15) {
+      showToast(`Seller GSTIN must be exactly 15 characters (currently: ${sellerGstin.length}).`);
+      return;
+    }
+
+    if (customerGstin && customerGstin.length !== 15) {
+      showToast(`Customer GSTIN must be exactly 15 characters (currently: ${customerGstin.length}).`);
+      return;
+    }
+
     saveCompanyToDirectory(state.seller, 'seller');
     saveCompanyToDirectory(state.customer, 'customer');
     window.print();
@@ -777,13 +749,32 @@ export default function App() {
                 </div>
                 
                 <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => loadCompanyFromDirectory(company, company.type === 'both' ? 'customer' : company.type)}
-                    className="p-1 text-indigo-400 hover:text-indigo-300 hover:bg-slate-700 rounded transition-colors cursor-pointer"
-                    title={`Load as ${company.type === 'both' ? 'customer' : company.type}`}
-                  >
-                    <Plus size={12} />
-                  </button>
+                  {company.type === 'both' ? (
+                    <>
+                      <button
+                        onClick={() => loadCompanyFromDirectory(company, 'seller')}
+                        className="px-1 py-0.5 text-indigo-400 hover:text-indigo-300 hover:bg-slate-700 rounded transition-colors cursor-pointer text-[9px] font-bold"
+                        title="Load as Seller"
+                      >
+                        S+
+                      </button>
+                      <button
+                        onClick={() => loadCompanyFromDirectory(company, 'customer')}
+                        className="px-1 py-0.5 text-indigo-400 hover:text-indigo-300 hover:bg-slate-700 rounded transition-colors cursor-pointer text-[9px] font-bold"
+                        title="Load as Customer"
+                      >
+                        C+
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => loadCompanyFromDirectory(company, company.type)}
+                      className="p-1 text-indigo-400 hover:text-indigo-300 hover:bg-slate-700 rounded transition-colors cursor-pointer"
+                      title={`Load as ${company.type}`}
+                    >
+                      <Plus size={12} />
+                    </button>
+                  )}
                   <button
                     onClick={() => deleteCompanyFromDirectory(company.id)}
                     className="p-1 text-rose-400 hover:text-rose-300 hover:bg-slate-700 rounded transition-colors cursor-pointer"
@@ -927,6 +918,7 @@ export default function App() {
                     type="text"
                     value={state.seller.name}
                     onChange={(e) => updateSeller('name', e.target.value)}
+                    onBlur={() => saveCompanyToDirectory(state.seller, 'seller')}
                     className="font-bold text-[12px] uppercase flex-1 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
                     placeholder="Seller Company Name"
                   />
@@ -936,10 +928,30 @@ export default function App() {
                       setActiveDropdown('seller');
                       setDirectorySearch("");
                     }}
-                    className="no-print opacity-0 group-hover/name:opacity-100 focus:opacity-100 p-1 text-slate-400 hover:text-indigo-600 rounded cursor-pointer transition-all"
+                    className="no-print opacity-60 hover:opacity-100 p-1 text-slate-400 hover:text-indigo-400 rounded cursor-pointer transition-all"
                     title="Load from Saved Sellers"
                   >
                     <BookUser size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!state.seller.name.trim()) {
+                        showToast("Please enter a Seller Company Name first.");
+                        return;
+                      }
+                      const gstin = (state.seller.gstin || "").trim();
+                      if (gstin && gstin.length !== 15) {
+                        showToast(`Seller GSTIN must be exactly 15 characters (currently: ${gstin.length}).`);
+                        return;
+                      }
+                      saveCompanyToDirectory(state.seller, 'seller');
+                      showToast("Seller added to directory.");
+                    }}
+                    className="no-print opacity-60 hover:opacity-100 p-1 text-slate-400 hover:text-indigo-400 rounded cursor-pointer transition-all ml-1"
+                    title="Add current Seller to Directory"
+                  >
+                    <Plus size={14} />
                   </button>
                 </div>
                 <div className="hidden print:block font-bold text-[12px] uppercase">
@@ -952,6 +964,7 @@ export default function App() {
                     type="text"
                     value={state.seller.gstin}
                     onChange={(e) => updateSeller('gstin', e.target.value)}
+                    onBlur={() => saveCompanyToDirectory(state.seller, 'seller')}
                     className="font-semibold w-36 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden uppercase"
                     placeholder="Enter GSTIN"
                   />
@@ -972,6 +985,7 @@ export default function App() {
                 <textarea
                   value={state.seller.address}
                   onChange={(e) => updateSeller('address', e.target.value)}
+                  onBlur={() => saveCompanyToDirectory(state.seller, 'seller')}
                   rows={2}
                   className="w-full border border-transparent focus:border-indigo-200 rounded outline-none text-slate-600 text-[10px] resize-none print:hidden"
                 />
@@ -985,6 +999,7 @@ export default function App() {
                     type="text"
                     value={state.seller.mobile}
                     onChange={(e) => updateSeller('mobile', e.target.value)}
+                    onBlur={() => saveCompanyToDirectory(state.seller, 'seller')}
                     className="w-full border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
                   />
                   <div className="hidden print:block">
@@ -998,6 +1013,7 @@ export default function App() {
                     type="text"
                     value={state.seller.email}
                     onChange={(e) => updateSeller('email', e.target.value)}
+                    onBlur={() => saveCompanyToDirectory(state.seller, 'seller')}
                     className="w-full border border-transparent focus:border-indigo-200 rounded outline-none text-slate-600 print:hidden"
                   />
                   <div className="hidden print:block text-slate-600">
@@ -1085,6 +1101,7 @@ export default function App() {
                   type="text"
                   value={state.customer.name}
                   onChange={(e) => updateCustomer('name', e.target.value)}
+                  onBlur={() => saveCompanyToDirectory(state.customer, 'customer')}
                   className="font-bold text-[12px] flex-1 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
                   placeholder="Customer Company Name"
                 />
@@ -1094,10 +1111,30 @@ export default function App() {
                     setActiveDropdown('customer');
                     setDirectorySearch("");
                   }}
-                  className="no-print opacity-0 group-hover/name:opacity-100 focus:opacity-100 p-1 text-slate-400 hover:text-indigo-600 rounded cursor-pointer transition-all"
+                  className="no-print opacity-60 hover:opacity-100 p-1 text-slate-400 hover:text-indigo-400 rounded cursor-pointer transition-all"
                   title="Load from Saved Customers"
                 >
                   <BookUser size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!state.customer.name.trim()) {
+                      showToast("Please enter a Customer Company Name first.");
+                      return;
+                    }
+                    const gstin = (state.customer.gstin || "").trim();
+                    if (gstin && gstin.length !== 15) {
+                      showToast(`Customer GSTIN must be exactly 15 characters (currently: ${gstin.length}).`);
+                      return;
+                    }
+                    saveCompanyToDirectory(state.customer, 'customer');
+                    showToast("Customer added to directory.");
+                  }}
+                  className="no-print opacity-60 hover:opacity-100 p-1 text-slate-400 hover:text-indigo-400 rounded cursor-pointer transition-all ml-1"
+                  title="Add current Customer to Directory"
+                >
+                  <Plus size={14} />
                 </button>
               </div>
               <div className="hidden print:block font-bold text-[12px]">
@@ -1108,6 +1145,7 @@ export default function App() {
                 type="text"
                 value={state.customer.subname}
                 onChange={(e) => updateCustomer('subname', e.target.value)}
+                onBlur={() => saveCompanyToDirectory(state.customer, 'customer')}
                 className="font-semibold text-slate-600 uppercase border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
               />
               <div className="hidden print:block font-semibold text-slate-600 uppercase">
@@ -1121,6 +1159,7 @@ export default function App() {
                     type="text"
                     value={state.customer.gstin}
                     onChange={(e) => updateCustomer('gstin', e.target.value)}
+                    onBlur={() => saveCompanyToDirectory(state.customer, 'customer')}
                     className="font-semibold w-36 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden uppercase"
                     placeholder="Enter GSTIN"
                   />
@@ -1143,6 +1182,7 @@ export default function App() {
                     type="text"
                     value={state.customer.pan}
                     onChange={(e) => updateCustomer('pan', e.target.value)}
+                    onBlur={() => saveCompanyToDirectory(state.customer, 'customer')}
                     className="font-semibold border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
                   />
                   <div className="hidden print:block font-semibold">
@@ -1155,6 +1195,7 @@ export default function App() {
                 <textarea
                   value={state.customer.address}
                   onChange={(e) => updateCustomer('address', e.target.value)}
+                  onBlur={() => saveCompanyToDirectory(state.customer, 'customer')}
                   rows={2}
                   className="w-full border border-transparent focus:border-indigo-200 rounded outline-none text-slate-600 text-[10px] resize-none print:hidden"
                 />
@@ -1168,6 +1209,7 @@ export default function App() {
                   type="text"
                   value={state.customer.phone}
                   onChange={(e) => updateCustomer('phone', e.target.value)}
+                  onBlur={() => saveCompanyToDirectory(state.customer, 'customer')}
                   className="border border-transparent focus:border-indigo-200 rounded outline-none text-slate-700 print:hidden"
                 />
                 <div className="hidden print:block text-slate-700">
