@@ -219,6 +219,23 @@ export default function App() {
     }));
   };
 
+  const handleGSTINChange = (type, value) => {
+    const valUpper = value.toUpperCase();
+    if (type === 'seller') {
+      updateSeller('gstin', valUpper);
+    } else {
+      updateCustomer('gstin', valUpper);
+      if (valUpper.length >= 12) {
+        updateCustomer('pan', valUpper.substring(2, 12));
+      }
+    }
+
+    const gstinPattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i;
+    if (gstinPattern.test(valUpper)) {
+      autofillFromGSTIN(type, valUpper);
+    }
+  };
+
   const [activeDropdown, setActiveDropdown] = useState(null); // 'seller' | 'customer' | null
   const [directorySearch, setDirectorySearch] = useState("");
 
@@ -226,27 +243,33 @@ export default function App() {
     if (!companyData || !companyData.name || !companyData.name.trim()) return;
     
     setState(prev => {
+      // Find index by exact GSTIN first if present in form, otherwise by name
       const existingIndex = prev.savedCompanies.findIndex(c => 
-        (companyData.gstin && c.gstin && c.gstin.trim() === companyData.gstin.trim()) || 
+        (companyData.gstin && c.gstin && c.gstin.trim().toUpperCase() === companyData.gstin.trim().toUpperCase()) || 
         c.name.trim().toUpperCase() === companyData.name.trim().toUpperCase()
       );
       
+      const existing = existingIndex !== -1 ? prev.savedCompanies[existingIndex] : null;
+      
+      // If the form has an empty GSTIN but we matched an existing entry by name, 
+      // we should keep the existing entry's GSTIN.
+      const rawGstin = (companyData.gstin || "").trim().toUpperCase();
+      const finalGstin = rawGstin || (existing ? existing.gstin : "");
+      
       const newCompany = {
-        id: existingIndex !== -1 ? prev.savedCompanies[existingIndex].id : "sc-" + Date.now() + "-" + Math.floor(Math.random() * 1000000),
+        id: existing ? existing.id : "sc-" + Date.now() + "-" + Math.floor(Math.random() * 1000000),
         name: companyData.name.trim().toUpperCase(),
-        subname: companyData.subname || companyData.tradeName || companyData.name,
-        gstin: companyData.gstin || "",
-        pan: companyData.pan || (companyData.gstin ? companyData.gstin.substring(2, 12) : ""),
-        address: companyData.address || "",
-        phone: companyData.phone || companyData.mobile || "",
-        email: companyData.email || "",
-        type: type
+        subname: (companyData.subname || companyData.tradeName || (existing ? existing.subname : companyData.name)).trim().toUpperCase(),
+        gstin: finalGstin,
+        pan: (companyData.pan || (existing ? existing.pan : "") || (finalGstin ? finalGstin.substring(2, 12) : "")).trim().toUpperCase(),
+        address: companyData.address || (existing ? existing.address : "") || "",
+        phone: companyData.phone || companyData.mobile || (existing ? existing.phone : "") || "",
+        email: companyData.email || (existing ? existing.email : "") || "",
+        type: existing ? (existing.type === type ? type : "both") : type
       };
       
       let updatedCompanies = [...prev.savedCompanies];
       if (existingIndex !== -1) {
-        const existing = prev.savedCompanies[existingIndex];
-        newCompany.type = existing.type === type ? type : "both";
         updatedCompanies[existingIndex] = newCompany;
       } else {
         updatedCompanies.push(newCompany);
@@ -288,6 +311,10 @@ export default function App() {
           pan: company.pan || (company.gstin ? company.gstin.substring(2, 12) : ""),
           address: company.address || "",
           phone: company.phone || ""
+        },
+        invoice: {
+          ...prev.invoice,
+          supplyPlace: company.gstin ? `${company.gstin.substring(0, 2)}-${(stateCodesMap[company.gstin.substring(0, 2)] || "").toUpperCase()}` : prev.invoice.supplyPlace
         }
       }));
       showToast(`Loaded customer: ${company.name}`);
@@ -302,8 +329,8 @@ export default function App() {
     showToast("Company removed from directory.");
   };
 
-  const autofillFromGSTIN = async (type) => {
-    const cleanGstin = (state[type]?.gstin || "").trim().toUpperCase();
+  const autofillFromGSTIN = async (type, passedGstin = null) => {
+    const cleanGstin = (passedGstin || state[type]?.gstin || "").trim().toUpperCase();
     if (!cleanGstin) {
       showToast("Please enter a GSTIN first.");
       return;
@@ -465,6 +492,10 @@ export default function App() {
             pan: data.gstin.substring(2, 12),
             address: data.address,
             phone: data.phone || prev.customer.phone
+          },
+          invoice: {
+            ...prev.invoice,
+            supplyPlace: `${data.stateCode}-${(stateCodesMap[data.stateCode] || "").toUpperCase()}`
           }
         }));
       }
@@ -963,7 +994,7 @@ export default function App() {
                   <input
                     type="text"
                     value={state.seller.gstin}
-                    onChange={(e) => updateSeller('gstin', e.target.value)}
+                    onChange={(e) => handleGSTINChange('seller', e.target.value)}
                     onBlur={() => saveCompanyToDirectory(state.seller, 'seller')}
                     className="font-semibold w-36 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden uppercase"
                     placeholder="Enter GSTIN"
@@ -972,7 +1003,7 @@ export default function App() {
                     type="button"
                     onClick={() => autofillFromGSTIN('seller')}
                     disabled={isLoadingGST.seller}
-                    className="no-print opacity-0 group-hover/gst:opacity-100 focus:opacity-100 ml-1.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
+                    className="no-print opacity-80 hover:opacity-100 focus:opacity-100 ml-1.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
                     title="Autofill seller details using this GSTIN"
                   >
                     {isLoadingGST.seller ? 'Fetching...' : 'Autofill'}
@@ -1158,7 +1189,7 @@ export default function App() {
                   <input
                     type="text"
                     value={state.customer.gstin}
-                    onChange={(e) => updateCustomer('gstin', e.target.value)}
+                    onChange={(e) => handleGSTINChange('customer', e.target.value)}
                     onBlur={() => saveCompanyToDirectory(state.customer, 'customer')}
                     className="font-semibold w-36 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden uppercase"
                     placeholder="Enter GSTIN"
@@ -1167,7 +1198,7 @@ export default function App() {
                     type="button"
                     onClick={() => autofillFromGSTIN('customer')}
                     disabled={isLoadingGST.customer}
-                    className="no-print opacity-0 group-hover/gst:opacity-100 focus:opacity-100 ml-1.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
+                    className="no-print opacity-80 hover:opacity-100 focus:opacity-100 ml-1.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
                     title="Autofill customer details using this GSTIN"
                   >
                     {isLoadingGST.customer ? 'Fetching...' : 'Autofill'}
