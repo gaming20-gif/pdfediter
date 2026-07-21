@@ -8,9 +8,143 @@ import {
   Info,
   CheckCircle,
   Menu,
-  X
+  X,
+  BookUser
 } from 'lucide-react';
 import { formatIndianCurrency, convertNumberToWords } from './utils/numberToWords';
+
+// Indian GST State Codes mapping
+const stateCodesMap = {
+  "01": "Jammu and Kashmir",
+  "02": "Himachal Pradesh",
+  "03": "Punjab",
+  "04": "Chandigarh",
+  "05": "Uttarakhand",
+  "06": "Haryana",
+  "07": "Delhi",
+  "08": "Rajasthan",
+  "09": "Uttar Pradesh",
+  "10": "Bihar",
+  "11": "Sikkim",
+  "12": "Arunachal Pradesh",
+  "13": "Nagaland",
+  "14": "Manipur",
+  "15": "Mizoram",
+  "16": "Tripura",
+  "17": "Meghalaya",
+  "18": "Assam",
+  "19": "West Bengal",
+  "20": "Jharkhand",
+  "21": "Odisha",
+  "22": "Chhattisgarh",
+  "23": "Madhya Pradesh",
+  "24": "Gujarat",
+  "25": "Daman and Diu (Legacy)",
+  "26": "Dadra and Nagar Haveli and Daman and Diu",
+  "27": "Maharashtra",
+  "28": "Andhra Pradesh (Legacy)",
+  "29": "Karnataka",
+  "30": "Goa",
+  "31": "Lakshadweep",
+  "32": "Kerala",
+  "33": "Tamil Nadu",
+  "34": "Puducherry",
+  "35": "Andaman and Nicobar Islands",
+  "36": "Telangana",
+  "37": "Andhra Pradesh",
+  "38": "Ladakh",
+  "97": "Other Territory",
+  "99": "Other Country"
+};
+
+// Seeded real prominent Indian companies for demonstration / sandbox lookup
+const seededGSTINs = {
+  "29AACCG0527D1Z0": {
+    name: "GOOGLE INDIA PRIVATE LIMITED",
+    tradeName: "Google India",
+    address: "No. 26/1, 4th & 5th Floor, Vaswani Centropolis, Langford Road, Shanthala Nagar, Bengaluru, Karnataka, 560025",
+    stateCode: "29",
+    phone: "+91 80 6721 8000",
+    email: "googleindia-support@google.com"
+  },
+  "06AACCG0527D1Z8": {
+    name: "GOOGLE INDIA PRIVATE LIMITED",
+    tradeName: "Google India",
+    address: "Sector 15, Part II, NH 8, Gurugram, Haryana, 122001",
+    stateCode: "06",
+    phone: "+91 124 451 2900",
+    email: "googleindia-support@google.com"
+  },
+  "27AAACR4849R1ZL": {
+    name: "TATA CONSULTANCY SERVICES LIMITED",
+    tradeName: "TCS",
+    address: "Nirmal Building, 9th Floor, Nariman Point, Mumbai, Maharashtra, 400021",
+    stateCode: "27",
+    phone: "+91 22 6778 9999",
+    email: "tcs.investors@tcs.com"
+  },
+  "29AAACI4798L1ZU": {
+    name: "INFOSYS LIMITED",
+    tradeName: "Infosys",
+    address: "Electronics City, Hosur Road, Bengaluru, Karnataka, 560100",
+    stateCode: "29",
+    phone: "+91 80 2852 0261",
+    email: "info@infosys.com"
+  },
+  "29AAACW0387R6ZE": {
+    name: "WIPRO LIMITED",
+    tradeName: "Wipro",
+    address: "Doddakannelli, Sarjapur Road, Bengaluru, Karnataka, 560035",
+    stateCode: "29",
+    phone: "+91 80 2844 0011",
+    email: "info@wipro.com"
+  }
+};
+
+const defaultSavedCompanies = [
+  {
+    id: "sc-1",
+    name: "RAMKRISHNA WHITE CLAY",
+    subname: "Ramkrishna White Clay",
+    gstin: "24BIGPS3992C1Z4",
+    address: "SURVEY NO.475/1/P1, MAMUARA, MAMUARA\nKachchh, GUJARAT, 370020",
+    phone: "+91 9909884555",
+    email: "ramkrishnawhiteclay@gmail.com",
+    type: "seller"
+  },
+  {
+    id: "sc-2",
+    name: "Bhavana Enterprises",
+    subname: "BHAVANA ENTERPRISE",
+    gstin: "24DCLPG2555L1ZE",
+    pan: "DCLPG2555L",
+    address: "House No. 492, Ground Floor, Mahesh Gamot\nJatiya vas, Mamuara\nKachchh, Gujarat, 370020",
+    phone: "9274395349",
+    type: "customer"
+  },
+  {
+    id: "sc-3",
+    name: "GOOGLE INDIA PRIVATE LIMITED",
+    subname: "Google India",
+    gstin: "29AACCG0527D1Z0",
+    pan: "AACCG0527D",
+    address: "No. 26/1, 4th & 5th Floor, Vaswani Centropolis, Langford Road, Shanthala Nagar, Bengaluru, Karnataka, 560025",
+    phone: "+91 80 6721 8000",
+    email: "googleindia-support@google.com",
+    type: "both"
+  },
+  {
+    id: "sc-4",
+    name: "TATA CONSULTANCY SERVICES LIMITED",
+    subname: "TCS",
+    gstin: "27AAACR4849R1ZL",
+    pan: "AAACR4849R",
+    address: "Nirmal Building, 9th Floor, Nariman Point, Mumbai, Maharashtra, 400021",
+    phone: "+91 22 6778 9999",
+    email: "tcs.investors@tcs.com",
+    type: "both"
+  }
+];
 
 // Default Reference State (matching the source image exactly)
 const referenceState = {
@@ -59,26 +193,40 @@ const referenceState = {
   },
   stampCompany: "RAMKRISHNA WHITE CLAY",
   pageNumNote: "Page 1 / 1",
-  digitallySignedNote: "• This is a digitally signed document."
+  digitallySignedNote: "• This is a digitally signed document.",
+  gstApiKey: "",
+  enableLiveGst: false,
+  savedCompanies: defaultSavedCompanies
 };
 
 export default function App() {
   // Load initial state from LocalStorage or referenceState
   const [state, setState] = useState(() => {
     const saved = localStorage.getItem('gst_invoice_react_draft');
+    const baseState = { ...referenceState };
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return {
+          ...baseState,
+          ...parsed,
+          seller: { ...baseState.seller, ...parsed.seller },
+          customer: { ...baseState.customer, ...parsed.customer },
+          invoice: { ...baseState.invoice, ...parsed.invoice },
+          bank: { ...baseState.bank, ...parsed.bank },
+          savedCompanies: parsed.savedCompanies || baseState.savedCompanies
+        };
       } catch (e) {
         console.error("Failed to parse saved state", e);
       }
     }
-    return referenceState;
+    return baseState;
   });
 
   const [toastMessage, setToastMessage] = useState("");
   const [manualRoundOff, setManualRoundOff] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoadingGST, setIsLoadingGST] = useState({ seller: false, customer: false });
 
   // Sync state changes to localStorage
   useEffect(() => {
@@ -110,6 +258,271 @@ export default function App() {
       ...prev,
       customer: { ...prev.customer, [field]: value }
     }));
+  };
+
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'seller' | 'customer' | null
+  const [directorySearch, setDirectorySearch] = useState("");
+
+  const saveCompanyToDirectory = (companyData, type) => {
+    if (!companyData.name) return;
+    
+    setState(prev => {
+      const existingIndex = prev.savedCompanies.findIndex(c => 
+        (companyData.gstin && c.gstin === companyData.gstin) || 
+        c.name.trim().toUpperCase() === companyData.name.trim().toUpperCase()
+      );
+      
+      const newCompany = {
+        id: existingIndex !== -1 ? prev.savedCompanies[existingIndex].id : "sc-" + Date.now(),
+        name: companyData.name.trim().toUpperCase(),
+        subname: companyData.subname || companyData.tradeName || companyData.name,
+        gstin: companyData.gstin || "",
+        pan: companyData.pan || (companyData.gstin ? companyData.gstin.substring(2, 12) : ""),
+        address: companyData.address || "",
+        phone: companyData.phone || companyData.mobile || "",
+        email: companyData.email || "",
+        type: type
+      };
+      
+      let updatedCompanies = [...prev.savedCompanies];
+      if (existingIndex !== -1) {
+        const existing = prev.savedCompanies[existingIndex];
+        newCompany.type = existing.type === type ? type : "both";
+        updatedCompanies[existingIndex] = newCompany;
+      } else {
+        updatedCompanies.push(newCompany);
+      }
+      
+      return {
+        ...prev,
+        savedCompanies: updatedCompanies
+      };
+    });
+  };
+
+  const loadCompanyFromDirectory = (company, targetSlot) => {
+    if (targetSlot === 'seller') {
+      setState(prev => ({
+        ...prev,
+        seller: {
+          ...prev.seller,
+          name: company.name,
+          gstin: company.gstin || "",
+          address: company.address || "",
+          mobile: company.phone || "",
+          email: company.email || ""
+        },
+        invoice: {
+          ...prev.invoice,
+          supplyPlace: company.gstin ? `${company.gstin.substring(0, 2)}-${(stateCodesMap[company.gstin.substring(0, 2)] || "").toUpperCase()}` : prev.invoice.supplyPlace
+        }
+      }));
+      showToast(`Loaded seller: ${company.name}`);
+    } else if (targetSlot === 'customer') {
+      setState(prev => ({
+        ...prev,
+        customer: {
+          ...prev.customer,
+          name: company.name,
+          subname: company.subname || company.name,
+          gstin: company.gstin || "",
+          pan: company.pan || (company.gstin ? company.gstin.substring(2, 12) : ""),
+          address: company.address || "",
+          phone: company.phone || ""
+        }
+      }));
+      showToast(`Loaded customer: ${company.name}`);
+    }
+  };
+
+  const deleteCompanyFromDirectory = (companyId) => {
+    setState(prev => ({
+      ...prev,
+      savedCompanies: prev.savedCompanies.filter(c => c.id !== companyId)
+    }));
+    showToast("Company removed from directory.");
+  };
+
+  const autofillFromGSTIN = async (type) => {
+    const cleanGstin = (state[type]?.gstin || "").trim().toUpperCase();
+    if (!cleanGstin) {
+      showToast("Please enter a GSTIN first.");
+      return;
+    }
+
+    // Validate GSTIN format
+    const gstinPattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i;
+    if (!gstinPattern.test(cleanGstin)) {
+      showToast("Invalid GSTIN format. Enter 15-char code (e.g. 29AACCG0527D1Z0).");
+      return;
+    }
+
+    setIsLoadingGST(prev => ({ ...prev, [type]: true }));
+
+    try {
+      let data = null;
+
+      // 1. If live mode is enabled and API key is set, try fetching
+      if (state.enableLiveGst && state.gstApiKey) {
+        try {
+          const response = await fetch("https://appyflow.in/api/verifyGST", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              gstNo: cleanGstin,
+              key_secret: state.gstApiKey
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          const info = result.taxpayerInfo || result;
+
+          if (info && (info.lgnm || info.tradeNam)) {
+            const parseAddress = (addr) => {
+              if (!addr) return "";
+              const parts = [
+                addr.bno,
+                addr.bnm,
+                addr.st,
+                addr.loc,
+                addr.dst,
+                addr.stcd,
+                addr.pncd
+              ].filter(Boolean);
+              return parts.join(", ");
+            };
+
+            let formattedAddr = "";
+            if (info.pradr && info.pradr.addr) {
+              formattedAddr = parseAddress(info.pradr.addr);
+            } else if (typeof info.pradr === 'string') {
+              formattedAddr = info.pradr;
+            } else if (info.adadr && info.adadr[0] && info.adadr[0].addr) {
+              formattedAddr = parseAddress(info.adadr[0].addr);
+            }
+
+            data = {
+              name: (info.lgnm || info.tradeNam || "Unknown Business").toUpperCase(),
+              tradeName: info.tradeNam || info.lgnm || "Unknown Business",
+              address: formattedAddr || info.address || "Address details not returned.",
+              gstin: cleanGstin,
+              stateCode: info.stcd || cleanGstin.substring(0, 2),
+              phone: info.phone || "",
+              email: info.email || ""
+            };
+          }
+        } catch (apiErr) {
+          console.warn("Live API request failed or was blocked by CORS. Falling back to Demo Mode.", apiErr);
+          showToast("Live API failed (CORS or network error). Falling back to Demo Mode...");
+        }
+      }
+
+      // 2. Fallback to seeded database / mock generator
+      if (!data) {
+        // Wait 800ms to simulate a network lookup for realistic UI experience
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        if (seededGSTINs[cleanGstin]) {
+          data = { ...seededGSTINs[cleanGstin], gstin: cleanGstin };
+        } else {
+          const stateCode = cleanGstin.substring(0, 2);
+          const pan = cleanGstin.substring(2, 12);
+          const stateName = stateCodesMap[stateCode] || "Other State";
+
+          // Generate realistic name based on 5th character of PAN
+          const char5 = pan[4] || "A";
+          const businessNames = {
+            A: "Apex Solutions Ltd", B: "Blue Star Logistics", C: "Crown Metal Works", D: "Delta Digital Systems",
+            E: "Empire Food Products", F: "Falcon Trade Link", G: "Galaxy Garments", H: "Horizon Chemicals",
+            I: "Integrity Builders", J: "Jupiter Electronics", K: "Karnavati Papers", L: "Leo Plastics",
+            M: "Matrix Consultants", N: "Nova Pharmaceuticals", O: "Oceanic Shipping", P: "Prism Paints",
+            Q: "Quantum Softwares", R: "Rapid Transport Services", S: "Sunlight Agro Foods", T: "Tech Mahindra Distributors",
+            U: "United Steel Industry", V: "Vanguard Retail Corp", W: "Windsors & Co", X: "Xenon Packaging",
+            Y: "Yamuna Auto Spares", Z: "Zenith Heavy Machinery"
+          };
+          const rawName = businessNames[char5.toUpperCase()] || "Acme Enterprises Ltd";
+          const businessName = `${rawName} (${stateName})`;
+
+          const addresses = {
+            "01": "Lal Chowk, Srinagar, Jammu & Kashmir, 190001",
+            "02": "Mall Road, Shimla, Himachal Pradesh, 171001",
+            "03": "Industrial Area Phase 7, Mohali, Punjab, 160055",
+            "04": "Sector 17-C, Chandigarh, 160017",
+            "05": "Haridwar Bypass Road, Dehradun, Uttarakhand, 248001",
+            "06": "DLF Cyber City Phase III, Sector 24, Gurugram, Haryana, 122002",
+            "07": "Connaught Place, New Delhi, Delhi, 110001",
+            "08": "MI Road, Jaipur, Rajasthan, 302001",
+            "09": "Noida Sector 62, Industrial Area, Uttar Pradesh, 201301",
+            "10": "Patliputra Industrial Area, Patna, Bihar, 800013",
+            "27": "MIDC Industrial Area, Andheri East, Mumbai, Maharashtra, 400093",
+            "29": "Whitefield Industrial Area, Bengaluru, Karnataka, 560066",
+            "33": "SIPCOT Industrial Park, Sriperumbudur, Tamil Nadu, 602105"
+          };
+          const address = addresses[stateCode] || `Plot No. 421, Phase I, Industrial Estate, ${stateName} - ${stateCode}0001`;
+
+          data = {
+            name: businessName.toUpperCase(),
+            tradeName: businessName,
+            address: address,
+            gstin: cleanGstin,
+            stateCode: stateCode,
+            phone: "+91 98" + Math.floor(10000000 + Math.random() * 90000000),
+            email: "contact@" + rawName.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com"
+          };
+        }
+      }
+
+      // 3. Apply changes to state
+      if (type === 'seller') {
+        setState(prev => ({
+          ...prev,
+          seller: {
+            ...prev.seller,
+            name: data.name,
+            gstin: data.gstin,
+            address: data.address,
+            mobile: data.phone || prev.seller.mobile,
+            email: data.email || prev.seller.email
+          },
+          invoice: {
+            ...prev.invoice,
+            supplyPlace: `${data.stateCode}-${(stateCodesMap[data.stateCode] || "").toUpperCase()}`
+          }
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          customer: {
+            ...prev.customer,
+            name: data.name,
+            subname: data.tradeName,
+            gstin: data.gstin,
+            pan: data.gstin.substring(2, 12),
+            address: data.address,
+            phone: data.phone || prev.customer.phone
+          }
+        }));
+      }
+
+      showToast(`Autofilled details for: ${data.name}`);
+    } catch (err) {
+      console.error(err);
+      showToast("GSTIN lookup failed. Please try again.");
+    } finally {
+      setIsLoadingGST(prev => ({ ...prev, [type]: false }));
+    }
+  };
+
+  const handlePrint = () => {
+    saveCompanyToDirectory(state.seller, 'seller');
+    saveCompanyToDirectory(state.customer, 'customer');
+    window.print();
   };
 
   const updateBank = (field, value) => {
@@ -255,7 +668,7 @@ export default function App() {
         </div>
 
         <button
-          onClick={() => window.print()}
+          onClick={handlePrint}
           className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors shadow cursor-pointer"
           title="Print"
         >
@@ -340,11 +753,102 @@ export default function App() {
           </div>
         </section>
 
+        {/* Company Directory / Address Book */}
+        <section className="flex flex-col gap-3 border-t border-slate-700 pt-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <BookUser size={13} className="text-indigo-400" /> Company Directory
+            </h2>
+            <span className="text-[10px] bg-slate-900 text-slate-400 px-1.5 py-0.5 rounded-full font-semibold">
+              {state.savedCompanies.length}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-1">
+            {state.savedCompanies.map(company => (
+              <div key={company.id} className="flex justify-between items-center bg-slate-900/50 border border-slate-700/60 p-2 rounded-md hover:border-slate-600 transition-colors gap-2">
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-[11px] font-bold text-slate-200 truncate uppercase" title={company.name}>
+                    {company.name}
+                  </span>
+                  <span className="text-[9px] text-slate-400 font-medium capitalize">
+                    {company.type === 'both' ? 'Seller & Customer' : company.type}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => loadCompanyFromDirectory(company, company.type === 'both' ? 'customer' : company.type)}
+                    className="p-1 text-indigo-400 hover:text-indigo-300 hover:bg-slate-700 rounded transition-colors cursor-pointer"
+                    title={`Load as ${company.type === 'both' ? 'customer' : company.type}`}
+                  >
+                    <Plus size={12} />
+                  </button>
+                  <button
+                    onClick={() => deleteCompanyFromDirectory(company.id)}
+                    className="p-1 text-rose-400 hover:text-rose-300 hover:bg-slate-700 rounded transition-colors cursor-pointer"
+                    title="Delete company"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {state.savedCompanies.length === 0 && (
+              <p className="text-[10px] text-slate-500 italic text-center py-4">
+                No companies saved. They will be added automatically when you print or save an invoice!
+              </p>
+            )}
+          </div>
+        </section>
+
+        {/* GST API Integration config */}
+        <section className="flex flex-col gap-4 border-t border-slate-700 pt-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">GST API Integration</h2>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-300 font-medium">Enable Live GST API</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={state.enableLiveGst}
+                onChange={(e) => setState(p => ({ ...p, enableLiveGst: e.target.checked }))}
+                className="sr-only peer"
+              />
+              <div className="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+
+          {state.enableLiveGst && (
+            <div className="flex flex-col gap-2">
+              <label className="text-[11px] text-slate-300" htmlFor="gst-api-key">Appyflow API Key</label>
+              <input
+                id="gst-api-key"
+                type="password"
+                value={state.gstApiKey}
+                placeholder="key_secret_..."
+                onChange={(e) => setState(p => ({ ...p, gstApiKey: e.target.value }))}
+                className="bg-slate-900 border border-slate-700 text-slate-100 rounded-md py-1.5 px-3 text-[11px] w-full outline-none focus:border-indigo-500 font-mono"
+              />
+              <p className="text-[10px] text-slate-400 leading-normal">
+                Sign up at <a href="https://appyflow.in/verify-gst/" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">appyflow.in</a> to get a free key (100 verifications/month).
+              </p>
+            </div>
+          )}
+          
+          {!state.enableLiveGst && (
+            <p className="text-[10px] text-slate-400 leading-normal">
+              Running in <strong>Demo Mode</strong>. Seeded GSTINs for Google, TCS, Infosys, and Wipro will fetch real details. Other valid codes will generate mock details.
+            </p>
+          )}
+        </section>
+
         {/* Actions panel */}
         <section className="flex flex-col gap-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Actions</h2>
           <button
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-md text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             <Printer size={14} /> Print / Save PDF
@@ -352,8 +856,10 @@ export default function App() {
           
           <button
             onClick={() => {
+              saveCompanyToDirectory(state.seller, 'seller');
+              saveCompanyToDirectory(state.customer, 'customer');
               localStorage.setItem('gst_invoice_react_draft', JSON.stringify(state));
-              showToast("Draft saved to LocalStorage.");
+              showToast("Draft & companies saved to directory.");
             }}
             className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-md text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
@@ -416,24 +922,48 @@ export default function App() {
             <section className="print-border-black border-b border-slate-800 flex flex-col md:flex-row print:flex-row">
               {/* Seller details column */}
               <div className="print-border-black border-b md:border-b-0 print:border-b-0 md:border-r print:border-r border-slate-800 flex-1 p-2 flex flex-col gap-1">
-                <input
-                  type="text"
-                  value={state.seller.name}
-                  onChange={(e) => updateSeller('name', e.target.value)}
-                  className="font-bold text-[12px] uppercase w-full border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
-                />
+                <div className="flex gap-2 items-center relative group/name w-full">
+                  <input
+                    type="text"
+                    value={state.seller.name}
+                    onChange={(e) => updateSeller('name', e.target.value)}
+                    className="font-bold text-[12px] uppercase flex-1 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
+                    placeholder="Seller Company Name"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveDropdown('seller');
+                      setDirectorySearch("");
+                    }}
+                    className="no-print opacity-0 group-hover/name:opacity-100 focus:opacity-100 p-1 text-slate-400 hover:text-indigo-600 rounded cursor-pointer transition-all"
+                    title="Load from Saved Sellers"
+                  >
+                    <BookUser size={14} />
+                  </button>
+                </div>
                 <div className="hidden print:block font-bold text-[12px] uppercase">
                   {state.seller.name}
                 </div>
 
-                <div className="flex gap-1 items-center">
+                <div className="flex gap-1 items-center relative group/gst">
                   <span className="text-[9px] text-slate-500 font-medium uppercase">GSTIN:</span>
                   <input
                     type="text"
                     value={state.seller.gstin}
                     onChange={(e) => updateSeller('gstin', e.target.value)}
-                    className="font-semibold w-full border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
+                    className="font-semibold w-36 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden uppercase"
+                    placeholder="Enter GSTIN"
                   />
+                  <button
+                    type="button"
+                    onClick={() => autofillFromGSTIN('seller')}
+                    disabled={isLoadingGST.seller}
+                    className="no-print opacity-0 group-hover/gst:opacity-100 focus:opacity-100 ml-1.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
+                    title="Autofill seller details using this GSTIN"
+                  >
+                    {isLoadingGST.seller ? 'Fetching...' : 'Autofill'}
+                  </button>
                   <div className="hidden print:block font-semibold">
                     {state.seller.gstin}
                   </div>
@@ -550,12 +1080,26 @@ export default function App() {
             <section className="print-border-black border-b border-slate-800 p-2.5 flex flex-col gap-1">
               <span className="font-bold text-[10px] uppercase border-b border-slate-200 pb-0.5 mb-1 text-slate-600">Customer Details</span>
               
-              <input
-                type="text"
-                value={state.customer.name}
-                onChange={(e) => updateCustomer('name', e.target.value)}
-                className="font-bold text-[12px] border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
-              />
+              <div className="flex gap-2 items-center relative group/name w-full">
+                <input
+                  type="text"
+                  value={state.customer.name}
+                  onChange={(e) => updateCustomer('name', e.target.value)}
+                  className="font-bold text-[12px] flex-1 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
+                  placeholder="Customer Company Name"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDropdown('customer');
+                    setDirectorySearch("");
+                  }}
+                  className="no-print opacity-0 group-hover/name:opacity-100 focus:opacity-100 p-1 text-slate-400 hover:text-indigo-600 rounded cursor-pointer transition-all"
+                  title="Load from Saved Customers"
+                >
+                  <BookUser size={14} />
+                </button>
+              </div>
               <div className="hidden print:block font-bold text-[12px]">
                 {state.customer.name}
               </div>
@@ -571,14 +1115,24 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap gap-x-6 gap-y-2 mt-0.5">
-                <div className="flex gap-1 items-center">
+                <div className="flex gap-1 items-center relative group/gst">
                   <span className="text-[9px] text-slate-500 font-medium uppercase">GSTIN:</span>
                   <input
                     type="text"
                     value={state.customer.gstin}
                     onChange={(e) => updateCustomer('gstin', e.target.value)}
-                    className="font-semibold border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
+                    className="font-semibold w-36 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden uppercase"
+                    placeholder="Enter GSTIN"
                   />
+                  <button
+                    type="button"
+                    onClick={() => autofillFromGSTIN('customer')}
+                    disabled={isLoadingGST.customer}
+                    className="no-print opacity-0 group-hover/gst:opacity-100 focus:opacity-100 ml-1.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
+                    title="Autofill customer details using this GSTIN"
+                  >
+                    {isLoadingGST.customer ? 'Fetching...' : 'Autofill'}
+                  </button>
                   <div className="hidden print:block font-semibold">
                     {state.customer.gstin}
                   </div>
@@ -992,6 +1546,100 @@ export default function App() {
           </footer>
         </article>
       </main>
+
+      {/* Saved Companies Lookup Modal */}
+      {activeDropdown && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 no-print">
+          <div className="bg-slate-800 border border-slate-700 w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-slate-700 flex justify-between items-center bg-slate-850">
+              <div>
+                <h3 className="font-bold text-slate-100 text-sm">
+                  Select {activeDropdown === 'seller' ? 'Seller' : 'Customer'}
+                </h3>
+                <p className="text-[11px] text-slate-400 font-sans mt-0.5">Choose a company from your directory</p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveDropdown(null);
+                  setDirectorySearch("");
+                }}
+                className="text-slate-400 hover:text-slate-200 p-1 hover:bg-slate-700 rounded transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Search */}
+            <div className="p-4 border-b border-slate-700 bg-slate-900/50">
+              <input
+                type="text"
+                placeholder="Search by name, GSTIN, or address..."
+                value={directorySearch}
+                onChange={(e) => setDirectorySearch(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500 font-sans"
+                autoFocus
+              />
+            </div>
+
+            {/* Modal Content - List */}
+            <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1 max-h-[40vh]">
+              {state.savedCompanies
+                .filter(company => {
+                  if (activeDropdown === 'seller') {
+                    if (company.type !== 'seller' && company.type !== 'both') return false;
+                  } else {
+                    if (company.type !== 'customer' && company.type !== 'both') return false;
+                  }
+                  
+                  const q = directorySearch.toLowerCase();
+                  return (
+                    company.name.toLowerCase().includes(q) ||
+                    (company.gstin && company.gstin.toLowerCase().includes(q)) ||
+                    (company.address && company.address.toLowerCase().includes(q))
+                  );
+                })
+                .map(company => (
+                  <button
+                    key={company.id}
+                    onClick={() => {
+                      loadCompanyFromDirectory(company, activeDropdown);
+                      setActiveDropdown(null);
+                      setDirectorySearch("");
+                    }}
+                    className="w-full text-left p-3 rounded-lg hover:bg-slate-700/50 flex flex-col gap-1 cursor-pointer transition-colors group border border-transparent hover:border-slate-700"
+                  >
+                    <div className="flex justify-between items-start">
+                      <span className="font-bold text-slate-200 text-xs group-hover:text-indigo-400 transition-colors uppercase">
+                        {company.name}
+                      </span>
+                      {company.gstin && (
+                        <span className="text-[9px] bg-slate-900 text-indigo-300 px-1.5 py-0.5 rounded font-mono font-medium">
+                          {company.gstin}
+                        </span>
+                      )}
+                    </div>
+                    {company.subname && company.subname !== company.name && (
+                      <span className="text-[10px] text-slate-400 italic">Trade: {company.subname}</span>
+                    )}
+                    <span className="text-[10px] text-slate-400 line-clamp-1">{company.address}</span>
+                  </button>
+                ))}
+
+              {state.savedCompanies.filter(company => {
+                if (activeDropdown === 'seller') {
+                  return company.type === 'seller' || company.type === 'both';
+                }
+                return company.type === 'customer' || company.type === 'both';
+              }).length === 0 && (
+                <div className="text-center py-6 text-slate-500 text-xs">
+                  No saved {activeDropdown === 'seller' ? 'sellers' : 'customers'} found.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
