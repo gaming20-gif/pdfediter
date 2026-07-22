@@ -57,49 +57,7 @@ const stateCodesMap = {
   "99": "Other Country"
 };
 
-// Seeded real prominent Indian companies for demonstration / sandbox lookup
-const seededGSTINs = {
-  "29AACCG0527D1Z0": {
-    name: "GOOGLE INDIA PRIVATE LIMITED",
-    tradeName: "Google India",
-    address: "No. 26/1, 4th & 5th Floor, Vaswani Centropolis, Langford Road, Shanthala Nagar, Bengaluru, Karnataka, 560025",
-    stateCode: "29",
-    phone: "+91 80 6721 8000",
-    email: "googleindia-support@google.com"
-  },
-  "06AACCG0527D1Z8": {
-    name: "GOOGLE INDIA PRIVATE LIMITED",
-    tradeName: "Google India",
-    address: "Sector 15, Part II, NH 8, Gurugram, Haryana, 122001",
-    stateCode: "06",
-    phone: "+91 124 451 2900",
-    email: "googleindia-support@google.com"
-  },
-  "27AAACR4849R1ZL": {
-    name: "TATA CONSULTANCY SERVICES LIMITED",
-    tradeName: "TCS",
-    address: "Nirmal Building, 9th Floor, Nariman Point, Mumbai, Maharashtra, 400021",
-    stateCode: "27",
-    phone: "+91 22 6778 9999",
-    email: "tcs.investors@tcs.com"
-  },
-  "29AAACI4798L1ZU": {
-    name: "INFOSYS LIMITED",
-    tradeName: "Infosys",
-    address: "Electronics City, Hosur Road, Bengaluru, Karnataka, 560100",
-    stateCode: "29",
-    phone: "+91 80 2852 0261",
-    email: "info@infosys.com"
-  },
-  "29AAACW0387R6ZE": {
-    name: "WIPRO LIMITED",
-    tradeName: "Wipro",
-    address: "Doddakannelli, Sarjapur Road, Bengaluru, Karnataka, 560035",
-    stateCode: "29",
-    phone: "+91 80 2844 0011",
-    email: "info@wipro.com"
-  }
-};
+
 
 const defaultSavedCompanies = [];
 
@@ -151,8 +109,6 @@ const referenceState = {
   stampCompany: "RAMKRISHNA WHITE CLAY",
   pageNumNote: "Page 1 / 1",
   digitallySignedNote: "• This is a digitally signed document.",
-  gstApiKey: "",
-  enableLiveGst: false,
   savedCompanies: defaultSavedCompanies
 };
 
@@ -185,7 +141,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState("");
   const [manualRoundOff, setManualRoundOff] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isLoadingGST, setIsLoadingGST] = useState({ seller: false, customer: false });
+
 
   // Sync state changes to localStorage
   useEffect(() => {
@@ -229,15 +185,12 @@ export default function App() {
         updateCustomer('pan', valUpper.substring(2, 12));
       }
     }
-
-    const gstinPattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i;
-    if (gstinPattern.test(valUpper)) {
-      autofillFromGSTIN(type, valUpper);
-    }
   };
 
   const [activeDropdown, setActiveDropdown] = useState(null); // 'seller' | 'customer' | null
   const [directorySearch, setDirectorySearch] = useState("");
+  const [showSellerSuggestions, setShowSellerSuggestions] = useState(false);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
 
   const saveCompanyToDirectory = (companyData, type) => {
     if (!companyData || !companyData.name || !companyData.name.trim()) return;
@@ -329,185 +282,7 @@ export default function App() {
     showToast("Company removed from directory.");
   };
 
-  const autofillFromGSTIN = async (type, passedGstin = null) => {
-    const cleanGstin = (passedGstin || state[type]?.gstin || "").trim().toUpperCase();
-    if (!cleanGstin) {
-      showToast("Please enter a GSTIN first.");
-      return;
-    }
 
-    // Validate GSTIN format
-    const gstinPattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i;
-    if (!gstinPattern.test(cleanGstin)) {
-      showToast("Invalid GSTIN format. Enter 15-char code (e.g. 29AACCG0527D1Z0).");
-      return;
-    }
-
-    setIsLoadingGST(prev => ({ ...prev, [type]: true }));
-
-    try {
-      let data = null;
-
-      // 1. If live mode is enabled and API key is set, try fetching
-      if (state.enableLiveGst && state.gstApiKey) {
-        try {
-          const response = await fetch("https://appyflow.in/api/verifyGST", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              gstNo: cleanGstin,
-              key_secret: state.gstApiKey
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error(`API error: ${response.status} ${response.statusText}`);
-          }
-
-          const result = await response.json();
-          const info = result.taxpayerInfo || result;
-
-          if (info && (info.lgnm || info.tradeNam)) {
-            const parseAddress = (addr) => {
-              if (!addr) return "";
-              const parts = [
-                addr.bno,
-                addr.bnm,
-                addr.st,
-                addr.loc,
-                addr.dst,
-                addr.stcd,
-                addr.pncd
-              ].filter(Boolean);
-              return parts.join(", ");
-            };
-
-            let formattedAddr = "";
-            if (info.pradr && info.pradr.addr) {
-              formattedAddr = parseAddress(info.pradr.addr);
-            } else if (typeof info.pradr === 'string') {
-              formattedAddr = info.pradr;
-            } else if (info.adadr && info.adadr[0] && info.adadr[0].addr) {
-              formattedAddr = parseAddress(info.adadr[0].addr);
-            }
-
-            data = {
-              name: (info.lgnm || info.tradeNam || "Unknown Business").toUpperCase(),
-              tradeName: info.tradeNam || info.lgnm || "Unknown Business",
-              address: formattedAddr || info.address || "Address details not returned.",
-              gstin: cleanGstin,
-              stateCode: info.stcd || cleanGstin.substring(0, 2),
-              phone: info.phone || "",
-              email: info.email || ""
-            };
-          }
-        } catch (apiErr) {
-          console.warn("Live API request failed or was blocked by CORS. Falling back to Demo Mode.", apiErr);
-          showToast("Live API failed (CORS or network error). Falling back to Demo Mode...");
-        }
-      }
-
-      // 2. Fallback to seeded database / mock generator
-      if (!data) {
-        // Wait 800ms to simulate a network lookup for realistic UI experience
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        if (seededGSTINs[cleanGstin]) {
-          data = { ...seededGSTINs[cleanGstin], gstin: cleanGstin };
-        } else {
-          const stateCode = cleanGstin.substring(0, 2);
-          const pan = cleanGstin.substring(2, 12);
-          const stateName = stateCodesMap[stateCode] || "Other State";
-
-          // Generate realistic name based on 5th character of PAN
-          const char5 = pan[4] || "A";
-          const businessNames = {
-            A: "Apex Solutions Ltd", B: "Blue Star Logistics", C: "Crown Metal Works", D: "Delta Digital Systems",
-            E: "Empire Food Products", F: "Falcon Trade Link", G: "Galaxy Garments", H: "Horizon Chemicals",
-            I: "Integrity Builders", J: "Jupiter Electronics", K: "Karnavati Papers", L: "Leo Plastics",
-            M: "Matrix Consultants", N: "Nova Pharmaceuticals", O: "Oceanic Shipping", P: "Prism Paints",
-            Q: "Quantum Softwares", R: "Rapid Transport Services", S: "Sunlight Agro Foods", T: "Tech Mahindra Distributors",
-            U: "United Steel Industry", V: "Vanguard Retail Corp", W: "Windsors & Co", X: "Xenon Packaging",
-            Y: "Yamuna Auto Spares", Z: "Zenith Heavy Machinery"
-          };
-          const rawName = businessNames[char5.toUpperCase()] || "Acme Enterprises Ltd";
-          const businessName = `${rawName} (${stateName})`;
-
-          const addresses = {
-            "01": "Lal Chowk, Srinagar, Jammu & Kashmir, 190001",
-            "02": "Mall Road, Shimla, Himachal Pradesh, 171001",
-            "03": "Industrial Area Phase 7, Mohali, Punjab, 160055",
-            "04": "Sector 17-C, Chandigarh, 160017",
-            "05": "Haridwar Bypass Road, Dehradun, Uttarakhand, 248001",
-            "06": "DLF Cyber City Phase III, Sector 24, Gurugram, Haryana, 122002",
-            "07": "Connaught Place, New Delhi, Delhi, 110001",
-            "08": "MI Road, Jaipur, Rajasthan, 302001",
-            "09": "Noida Sector 62, Industrial Area, Uttar Pradesh, 201301",
-            "10": "Patliputra Industrial Area, Patna, Bihar, 800013",
-            "27": "MIDC Industrial Area, Andheri East, Mumbai, Maharashtra, 400093",
-            "29": "Whitefield Industrial Area, Bengaluru, Karnataka, 560066",
-            "33": "SIPCOT Industrial Park, Sriperumbudur, Tamil Nadu, 602105"
-          };
-          const address = addresses[stateCode] || `Plot No. 421, Phase I, Industrial Estate, ${stateName} - ${stateCode}0001`;
-
-          data = {
-            name: businessName.toUpperCase(),
-            tradeName: businessName,
-            address: address,
-            gstin: cleanGstin,
-            stateCode: stateCode,
-            phone: "+91 98" + Math.floor(10000000 + Math.random() * 90000000),
-            email: "contact@" + rawName.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com"
-          };
-        }
-      }
-
-      // 3. Apply changes to state
-      if (type === 'seller') {
-        setState(prev => ({
-          ...prev,
-          seller: {
-            ...prev.seller,
-            name: data.name,
-            gstin: data.gstin,
-            address: data.address,
-            mobile: data.phone || prev.seller.mobile,
-            email: data.email || prev.seller.email
-          },
-          invoice: {
-            ...prev.invoice,
-            supplyPlace: `${data.stateCode}-${(stateCodesMap[data.stateCode] || "").toUpperCase()}`
-          }
-        }));
-      } else {
-        setState(prev => ({
-          ...prev,
-          customer: {
-            ...prev.customer,
-            name: data.name,
-            subname: data.tradeName,
-            gstin: data.gstin,
-            pan: data.gstin.substring(2, 12),
-            address: data.address,
-            phone: data.phone || prev.customer.phone
-          },
-          invoice: {
-            ...prev.invoice,
-            supplyPlace: `${data.stateCode}-${(stateCodesMap[data.stateCode] || "").toUpperCase()}`
-          }
-        }));
-      }
-
-      showToast(`Autofilled details for: ${data.name}`);
-    } catch (err) {
-      console.error(err);
-      showToast("GSTIN lookup failed. Please try again.");
-    } finally {
-      setIsLoadingGST(prev => ({ ...prev, [type]: false }));
-    }
-  };
 
   const handlePrint = () => {
     const sellerGstin = (state.seller.gstin || "").trim();
@@ -641,6 +416,16 @@ export default function App() {
     hsnGroups[hsn].sgstAmt += item.taxableValue * (sgstRate / 100);
     hsnGroups[hsn].totalTax += item.taxAmount;
   });
+
+  const sellerSuggestions = state.savedCompanies.filter(company => 
+    (company.type === 'seller' || company.type === 'both') &&
+    (state.seller.name.trim() === "" || company.name.toLowerCase().includes(state.seller.name.toLowerCase()))
+  );
+
+  const customerSuggestions = state.savedCompanies.filter(company => 
+    (company.type === 'customer' || company.type === 'both') &&
+    (state.customer.name.trim() === "" || company.name.toLowerCase().includes(state.customer.name.toLowerCase()))
+  );
 
   return (
     <div className="flex min-h-screen text-slate-100 font-sans" style={{ '--invoice-accent': state.themeColor, fontFamily: state.fontFamily }}>
@@ -825,46 +610,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* GST API Integration config */}
-        <section className="flex flex-col gap-4 border-t border-slate-700 pt-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">GST API Integration</h2>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-300 font-medium">Enable Live GST API</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={state.enableLiveGst}
-                onChange={(e) => setState(p => ({ ...p, enableLiveGst: e.target.checked }))}
-                className="sr-only peer"
-              />
-              <div className="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600"></div>
-            </label>
-          </div>
 
-          {state.enableLiveGst && (
-            <div className="flex flex-col gap-2">
-              <label className="text-[11px] text-slate-300" htmlFor="gst-api-key">Appyflow API Key</label>
-              <input
-                id="gst-api-key"
-                type="password"
-                value={state.gstApiKey}
-                placeholder="key_secret_..."
-                onChange={(e) => setState(p => ({ ...p, gstApiKey: e.target.value }))}
-                className="bg-slate-900 border border-slate-700 text-slate-100 rounded-md py-1.5 px-3 text-[11px] w-full outline-none focus:border-indigo-500 font-mono"
-              />
-              <p className="text-[10px] text-slate-400 leading-normal">
-                Sign up at <a href="https://appyflow.in/verify-gst/" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">appyflow.in</a> to get a free key (100 verifications/month).
-              </p>
-            </div>
-          )}
-          
-          {!state.enableLiveGst && (
-            <p className="text-[10px] text-slate-400 leading-normal">
-              Running in <strong>Demo Mode</strong>. Seeded GSTINs for Google, TCS, Infosys, and Wipro will fetch real details. Other valid codes will generate mock details.
-            </p>
-          )}
-        </section>
 
         {/* Actions panel */}
         <section className="flex flex-col gap-3">
@@ -949,10 +695,34 @@ export default function App() {
                     type="text"
                     value={state.seller.name}
                     onChange={(e) => updateSeller('name', e.target.value)}
-                    onBlur={() => saveCompanyToDirectory(state.seller, 'seller')}
+                    onFocus={() => setShowSellerSuggestions(true)}
+                    onBlur={() => {
+                      saveCompanyToDirectory(state.seller, 'seller');
+                      setTimeout(() => setShowSellerSuggestions(false), 200);
+                    }}
                     className="font-bold text-[12px] uppercase flex-1 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
                     placeholder="Seller Company Name"
                   />
+                  {showSellerSuggestions && sellerSuggestions.length > 0 && (
+                    <div className="absolute left-0 top-full mt-1 w-full bg-slate-850 border border-slate-700 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto no-print">
+                      {sellerSuggestions.map(company => (
+                        <div
+                          key={company.id}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            loadCompanyFromDirectory(company, 'seller');
+                            setShowSellerSuggestions(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-[11px] text-slate-200 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer border-b border-slate-700/60 last:border-b-0 uppercase font-bold"
+                        >
+                          <div className="flex justify-between items-center w-full">
+                            <span className="truncate">{company.name}</span>
+                            {company.gstin && <span className="text-[9px] opacity-80 font-mono ml-2 shrink-0">{company.gstin}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -999,15 +769,7 @@ export default function App() {
                     className="font-semibold w-36 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden uppercase"
                     placeholder="Enter GSTIN"
                   />
-                  <button
-                    type="button"
-                    onClick={() => autofillFromGSTIN('seller')}
-                    disabled={isLoadingGST.seller}
-                    className="no-print opacity-80 hover:opacity-100 focus:opacity-100 ml-1.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
-                    title="Autofill seller details using this GSTIN"
-                  >
-                    {isLoadingGST.seller ? 'Fetching...' : 'Autofill'}
-                  </button>
+
                   <div className="hidden print:block font-semibold">
                     {state.seller.gstin}
                   </div>
@@ -1128,14 +890,38 @@ export default function App() {
               <span className="font-bold text-[10px] uppercase border-b border-slate-200 pb-0.5 mb-1 text-slate-600">Customer Details</span>
               
               <div className="flex gap-2 items-center relative group/name w-full">
-                <input
+                 <input
                   type="text"
                   value={state.customer.name}
                   onChange={(e) => updateCustomer('name', e.target.value)}
-                  onBlur={() => saveCompanyToDirectory(state.customer, 'customer')}
+                  onFocus={() => setShowCustomerSuggestions(true)}
+                  onBlur={() => {
+                    saveCompanyToDirectory(state.customer, 'customer');
+                    setTimeout(() => setShowCustomerSuggestions(false), 200);
+                  }}
                   className="font-bold text-[12px] flex-1 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden"
                   placeholder="Customer Company Name"
                 />
+                {showCustomerSuggestions && customerSuggestions.length > 0 && (
+                  <div className="absolute left-0 top-full mt-1 w-full bg-slate-850 border border-slate-700 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto no-print">
+                    {customerSuggestions.map(company => (
+                      <div
+                        key={company.id}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          loadCompanyFromDirectory(company, 'customer');
+                          setShowCustomerSuggestions(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-[11px] text-slate-200 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer border-b border-slate-700/60 last:border-b-0 uppercase font-bold"
+                      >
+                        <div className="flex justify-between items-center w-full">
+                          <span className="truncate">{company.name}</span>
+                          {company.gstin && <span className="text-[9px] opacity-80 font-mono ml-2 shrink-0">{company.gstin}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -1194,15 +980,7 @@ export default function App() {
                     className="font-semibold w-36 border border-transparent focus:border-indigo-200 rounded outline-none print:hidden uppercase"
                     placeholder="Enter GSTIN"
                   />
-                  <button
-                    type="button"
-                    onClick={() => autofillFromGSTIN('customer')}
-                    disabled={isLoadingGST.customer}
-                    className="no-print opacity-80 hover:opacity-100 focus:opacity-100 ml-1.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
-                    title="Autofill customer details using this GSTIN"
-                  >
-                    {isLoadingGST.customer ? 'Fetching...' : 'Autofill'}
-                  </button>
+
                   <div className="hidden print:block font-semibold">
                     {state.customer.gstin}
                   </div>
